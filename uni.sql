@@ -474,12 +474,31 @@ where enrollment = (select max(enrollment) from cse);
 
 -- 2a. Find the total grade points earned by the student with ID '12345', across all courses taken by the student.
 
--- NB: returns null if the student has taken 0 courses
-select sum(credits * points)
+-- returns null if the student has not taken a course
+select sum(credits * points) as tot_gp
 from grade_points as gp, course as c, takes as t
 where t.grade = gp.grade
 and t.course_id = c.course_id
 and ID = '12345';
+
+-- returns 0 if the student has not taken a course
+-- coalesce(X, Y, ...) returns its first non-null argument
+-- https://www.sqlite.org/lang_corefunc.html#coalesce
+select coalesce(sum(credits * points), 0) as tot_gp
+from grade_points as gp, course as c, takes as t
+where t.grade = gp.grade
+and t.course_id = c.course_id
+and ID = '70557';
+
+-- returns null in the case the student is not enrolled
+select (case
+when ID is null then null
+else coalesce(sum(credits * points), 0)
+end) as tot_gp
+from student left outer join takes using (ID)
+left outer join course using (course_id)
+left outer join grade_points using (grade)
+where ID = '70558';
 
 -- b. Find the grade point average (GPA) for the above student, that is, the total grade points divided by the total credits for the associated courses.
 
@@ -525,8 +544,7 @@ where tot_cred > 100;
 
 -- 5a. Display the grade for each student, based on the marks relation.
 
-select ID,
-(case
+select ID, (case
 when score < 40 then 'F'
 when score < 60 then 'C'
 when score < 80 then 'B'
@@ -536,8 +554,7 @@ from marks;
 
 -- b. Find the number of students with each grade.
 
-select
-(case
+select (case
 when score < 40 then 'F'
 when score < 60 then 'C'
 when score < 80 then 'B'
