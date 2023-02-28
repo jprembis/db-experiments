@@ -66,7 +66,7 @@ create table if not exists student
 (ID varchar(5),
 name varchar(20) not null,
 dept_name varchar(20),
-tot_cred numeric(3,0) check (tot_cred >= 0),
+tot_cred numeric(3,0) default 0 check (typeof(tot_cred) = 'integer' and tot_cred >= 0),
 primary key (ID),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
@@ -316,7 +316,7 @@ insert into marks values ('98988', 93);
 
 -- Find all the courses taught in both Fall 2017 and Spring 2018.
 
--- NB: INTERSECT ALL is not supported in sqlite:
+-- INTERSECT ALL is not supported in sqlite:
 -- https://www.sqlite.org/lang_select.html#compound_select_statements
 
 -- Set intersection with duplicates retained
@@ -340,7 +340,7 @@ where semester = 'Spring' and year = 2018 and course_id = s.course_id);
 
 -- Set containment
 -- relation A contains relation B <=> {} = B \ A (i.e., NOT EXISTS (B EXCEPT A))
-select s.ID, s.name
+select ID, name
 from student as s
 where not exists
 (select course_id from course where dept_name = 'Biology'
@@ -402,6 +402,16 @@ with t(cnt) as
 (select count(*) from instructor)
 select t.cnt / i.cnt as avg_load
 from t, i;
+
+-- Functions
+
+-- coalesce(X, Y, ...) returns its first non-null argument, or null if all arguments are null
+select coalesce(null, 0); -- returns 0
+select coalesce(null, null); -- returns null
+
+-- typeof(X) returns a string from the set {'null', 'integer', 'real', 'text', 'blob'} representing the datatype of expression X
+select typeof(ID), typeof(name), typeof(dept_name), typeof(tot_cred)
+from student;
 
 -- Exercises
 
@@ -482,15 +492,13 @@ and t.course_id = c.course_id
 and ID = '12345';
 
 -- returns 0 if the student has not taken a course
--- coalesce(X, Y, ...) returns its first non-null argument
--- https://www.sqlite.org/lang_corefunc.html#coalesce
 select coalesce(sum(credits * points), 0) as tot_gp
 from grade_points as gp, course as c, takes as t
 where t.grade = gp.grade
 and t.course_id = c.course_id
 and ID = '70557';
 
--- returns null in the case the student is not enrolled
+-- returns null in the case where the student is not enrolled
 select (case
 when ID is null then null
 else coalesce(sum(credits * points), 0)
@@ -510,7 +518,7 @@ and ID = '12345';
 
 -- c. Find the ID and the GPA of each student.
 
-select ID, printf('%.2f', sum(credits * points) / sum(credits)) as GPA
+select ID, format('%.2f', sum(credits * points) / sum(credits)) as GPA
 from grade_points as gp, course as c, takes as t
 where t.grade = gp.grade
 and t.course_id = c.course_id
@@ -529,14 +537,14 @@ where dept_name = 'Comp. Sci.';
 
 -- b. Delete all courses that have never been offered (i.e., do not occur in the section relation).
 
--- NB: deletes 'BIO-399'
+-- deletes 'BIO-399', as expected
 delete from course
 where course_id not in
 (select course_id from section);
 
 -- c. Insert every student whose tot_cred attribute is greater than 100 as an instructor in the same department, with a salary of $10,000.
 
--- NB: fails with check constraint violation on salary
+-- fails with check constraint violation on salary, as expected
 insert into instructor
 select ID, name, dept_name, 10000
 from student
@@ -562,3 +570,38 @@ else 'A'
 end) as grade, count(ID)
 from marks
 group by grade;
+
+-- 6. Find departments whose names contain the string "sci" as a substring, regardless of the case.
+
+select dept_name
+from department
+where lower(dept_name) like '%sci%';
+
+-- 11a. Find the ID and name of each student who has taken at least one Comp. Sci. course; make sure there are no duplicate names in the result.
+
+select distinct ID, name
+from student join takes using (ID)
+where course_id like 'CS-%';
+
+-- b. Find the ID and name of each student who has not taken any course offered before 2017.
+
+select ID, name
+from student
+except
+select ID, name
+from student join takes using (ID)
+where year < 2017;
+
+-- c. For each department, find the maximum salary of instructors in that department. You may assume that every department has at least one instructor.
+
+select dept_name, max(salary)
+from instructor
+group by dept_name;
+
+-- d. Find the lowest, across all departments, of the per-department maximum salary computed by the preceding query.
+
+select min(max_salary)
+from
+(select dept_name, max(salary) as max_salary
+from instructor
+group by dept_name);
