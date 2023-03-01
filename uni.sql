@@ -1,26 +1,34 @@
--- sqlite> .read <this-file>
-
-.header on
-.mode column
-.nullvalue NULL
-
 -- Schema
 
-create table if not exists classroom
+drop table marks;
+drop table prereq;
+drop table time_slot;
+drop table advisor;
+drop table takes;
+drop table grade_points;
+drop table student;
+drop table teaches;
+drop table section;
+drop table instructor;
+drop table course;
+drop table department;
+drop table classroom;
+
+create table classroom
 (building varchar(15),
 room_number varchar(7),
 capacity numeric(4,0),
 primary key (building, room_number)
 );
 
-create table if not exists department
+create table department
 (dept_name varchar(20),
 building varchar(15),
 budget numeric(12,2) check (budget > 0),
 primary key (dept_name)
 );
 
-create table if not exists course
+create table course
 (course_id varchar(8),
 title varchar(50),
 dept_name varchar(20),
@@ -29,7 +37,7 @@ primary key (course_id),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
 
-create table if not exists instructor
+create table instructor
 (ID varchar(5),
 name varchar(20) not null,
 dept_name varchar(20),
@@ -38,7 +46,7 @@ primary key (ID),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
 
-create table if not exists section
+create table section
 (course_id varchar(8),
 sec_id varchar(8),
 semester varchar(6) check (semester in ('Fall', 'Winter', 'Spring', 'Summer')),
@@ -51,7 +59,7 @@ foreign key (course_id) references course (course_id) on delete cascade,
 foreign key (building, room_number) references classroom (building, room_number) on delete set null
 );
 
-create table if not exists teaches
+create table teaches
 (ID varchar(5),
 course_id varchar(8),
 sec_id varchar(8),
@@ -62,16 +70,22 @@ foreign key (course_id, sec_id, semester, year) references section (course_id, s
 foreign key (ID) references instructor (ID) on delete cascade
 );
 
-create table if not exists student
+create table student
 (ID varchar(5),
 name varchar(20) not null,
 dept_name varchar(20),
-tot_cred numeric(3,0) default 0 check (typeof(tot_cred) = 'integer' and tot_cred >= 0),
+tot_cred numeric(3,0) default 0 check (tot_cred >= 0),
 primary key (ID),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
 
-create table if not exists takes
+create table grade_points
+(grade varchar(2),
+points real,
+primary key (grade)
+);
+
+create table takes
 (ID varchar(5),
 course_id varchar(8),
 sec_id varchar(8),
@@ -84,7 +98,7 @@ foreign key (ID) references student (ID) on delete cascade,
 foreign key (grade) references grade_points (grade)
 );
 
-create table if not exists advisor
+create table advisor
 (s_ID varchar(5),
 i_ID varchar(5),
 primary key (s_ID),
@@ -92,7 +106,7 @@ foreign key (i_ID) references instructor (ID) on delete set null,
 foreign key (s_ID) references student (ID) on delete cascade
 );
 
-create table if not exists time_slot
+create table time_slot
 (time_slot_id varchar(4),
 day varchar(1),
 start_hr numeric(2) check (start_hr >= 0 and start_hr < 24),
@@ -102,7 +116,7 @@ end_min numeric(2) check (end_min >= 0 and end_min < 60),
 primary key (time_slot_id, day, start_hr, start_min)
 );
 
-create table if not exists prereq
+create table prereq
 (course_id varchar(8),
 prereq_id varchar(8),
 primary key (course_id, prereq_id),
@@ -110,32 +124,13 @@ foreign key (course_id) references course (course_id) on delete cascade,
 foreign key (prereq_id) references course (course_id)
 );
 
-create table if not exists grade_points
-(grade varchar(2),
-points real,
-primary key (grade)
-);
-
-create table if not exists marks
+create table marks
 (ID varchar(5),
 score integer,
 foreign key (ID) references student (ID) on delete cascade);
 
 -- Data
 
-delete from marks;
-delete from grade_points;
-delete from prereq;
-delete from time_slot;
-delete from advisor;
-delete from takes;
-delete from student;
-delete from teaches;
-delete from section;
-delete from instructor;
-delete from course;
-delete from department;
-delete from classroom;
 insert into classroom values ('Packard', '101', '500');
 insert into classroom values ('Painter', '514', '10');
 insert into classroom values ('Taylor', '3128', '70');
@@ -218,6 +213,18 @@ insert into student values ('76543', 'Brown', 'Comp. Sci.', '58');
 insert into student values ('76653', 'Aoi', 'Elec. Eng.', '60');
 insert into student values ('98765', 'Bourikas', 'Elec. Eng.', '98');
 insert into student values ('98988', 'Tanaka', 'Biology', '120');
+insert into grade_points values ('A', 4.00);
+insert into grade_points values ('A-', 3.67);
+insert into grade_points values ('B+', 3.33);
+insert into grade_points values ('B', 3.00);
+insert into grade_points values ('B-', 2.67);
+insert into grade_points values ('C+', 2.33);
+insert into grade_points values ('C', 2.00);
+insert into grade_points values ('C-', 1.67);
+insert into grade_points values ('D+', 1.33);
+insert into grade_points values ('D', 1.00);
+insert into grade_points values ('D-', 0.67);
+insert into grade_points values ('F', 0);
 insert into takes values ('00128', 'CS-101', '1', 'Fall', '2017', 'A');
 insert into takes values ('00128', 'CS-347', '1', 'Fall', '2017', 'A-');
 insert into takes values ('12345', 'CS-101', '1', 'Fall', '2017', 'C');
@@ -277,18 +284,6 @@ insert into prereq values ('CS-315', 'CS-101');
 insert into prereq values ('CS-319', 'CS-101');
 insert into prereq values ('CS-347', 'CS-101');
 insert into prereq values ('EE-181', 'PHY-101');
-insert into grade_points values ('A', 4.00);
-insert into grade_points values ('A-', 3.67);
-insert into grade_points values ('B+', 3.33);
-insert into grade_points values ('B', 3.00);
-insert into grade_points values ('B-', 2.67);
-insert into grade_points values ('C+', 2.33);
-insert into grade_points values ('C', 2.00);
-insert into grade_points values ('C-', 1.67);
-insert into grade_points values ('D+', 1.33);
-insert into grade_points values ('D', 1.00);
-insert into grade_points values ('D-', 0.67);
-insert into grade_points values ('F', 0);
 insert into marks values ('00128', 53);
 insert into marks values ('19991', 79);
 insert into marks values ('19991', 32);
@@ -354,14 +349,14 @@ select course_id from takes where ID = s.ID);
 select dept_name, avg(salary) as avg_salary
 from instructor
 group by dept_name
-having avg_salary > 42000;
+having avg(salary) > 42000;
 
 -- b. subquery in the from clause and filtering by WHERE(expr)
 select dept_name, avg_salary
 from
 (select dept_name, avg(salary) as avg_salary
 from instructor
-group by dept_name)
+group by dept_name) as pdas
 where avg_salary > 42000;
 
 -- Find the number of instructors in each department.
@@ -383,11 +378,12 @@ select
 
 -- Standard-conforming alternatives to select-without-from
 -- a. dummy table
-create view if not exists dual as select 0;
+create view dual as select 0;
 select
 (select cast(count(*) as real) from teaches) /
 (select count(*) from instructor) as avg_load
 from dual;
+drop view dual;
 
 -- b. stand-alone values clause
 -- https://www.sqlite.org/lang_select.html#the_values_clause
@@ -405,13 +401,14 @@ from t, i;
 
 -- Functions
 
+-- Standard
 -- coalesce(X, Y, ...) returns its first non-null argument, or null if all arguments are null
 select coalesce(null, 0); -- returns 0
 select coalesce(null, null); -- returns null
 
+-- SQLite-specific
 -- typeof(X) returns a string from the set {'null', 'integer', 'real', 'text', 'blob'} representing the datatype of expression X
-select typeof(ID), typeof(name), typeof(dept_name), typeof(tot_cred)
-from student;
+-- select typeof(ID), typeof(name), typeof(dept_name), typeof(tot_cred) from student;
 
 -- Exercises
 
@@ -453,7 +450,6 @@ from section as s
 where semester = 'Fall' and year = 2017;
 
 -- f. Find the maximum enrollment, across all sections, in Fall 2017.
-
 select max(enrollment)
 from
 (select count(ID) as enrollment
@@ -464,7 +460,7 @@ and t.course_id = s.course_id
 and t.sec_id = s.sec_id
 and t.semester = 'Fall'
 and t.year = 2017
-group by t.course_id, t.sec_id);
+group by t.course_id, t.sec_id) as e;
 
 -- g. Find the sections that had the maximum enrollment in Fall 2017.
 
@@ -506,7 +502,16 @@ end) as tot_gp
 from student left outer join takes using (ID)
 left outer join course using (course_id)
 left outer join grade_points using (grade)
-where ID = '70558';
+where ID = '70558'
+group by ID;
+
+-- the following does not work in PostgreSQL since ID is of type string (it does, however, work in SQLite)*:
+-- select coalesce(sum(credits * points), ID * 0) as tot_gp
+-- from student left outer join takes using (ID)
+-- left outer join course using (course_id)
+-- left outer join grade_points using (grade)
+-- where ID = '70558';
+-- * https://www.sqlite.org/datatype3.html#operators
 
 -- b. Find the grade point average (GPA) for the above student, that is, the total grade points divided by the total credits for the associated courses.
 
@@ -518,7 +523,7 @@ and ID = '12345';
 
 -- c. Find the ID and the GPA of each student.
 
-select ID, format('%.2f', sum(credits * points) / sum(credits)) as GPA
+select ID, round(cast(sum(credits * points) / sum(credits) as numeric), 2) as GPA
 from grade_points as gp, course as c, takes as t
 where t.grade = gp.grade
 and t.course_id = c.course_id
@@ -604,4 +609,4 @@ select min(max_salary)
 from
 (select dept_name, max(salary) as max_salary
 from instructor
-group by dept_name);
+group by dept_name) as pdms;
