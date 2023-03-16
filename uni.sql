@@ -24,7 +24,7 @@ primary key (building, room_number)
 create table department
 (dept_name varchar(20),
 building varchar(15),
-budget numeric(12,2) check (budget > 0),
+budget numeric(12,2) not null check (budget > 0),
 primary key (dept_name)
 );
 
@@ -32,7 +32,7 @@ create table course
 (course_id varchar(8),
 title varchar(50),
 dept_name varchar(20),
-credits numeric(2,0) check (credits > 0),
+credits numeric(2,0) not null check (credits > 0),
 primary key (course_id),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
@@ -41,7 +41,7 @@ create table instructor
 (ID varchar(5),
 name varchar(20) not null,
 dept_name varchar(20),
-salary numeric(8,2) check (salary > 29000),
+salary numeric(8,2) not null check (salary > 29000),
 primary key (ID),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
@@ -49,8 +49,8 @@ foreign key (dept_name) references department (dept_name) on delete set null
 create table section
 (course_id varchar(8),
 sec_id varchar(8),
-semester varchar(6) check (semester in ('Fall', 'Winter', 'Spring', 'Summer')),
-year numeric(4,0) check (year > 1701 and year < 2100),
+semester varchar(6) not null check (semester in ('Fall', 'Winter', 'Spring', 'Summer')),
+year numeric(4,0) not null check (year > 1701 and year < 2100),
 building varchar(15),
 room_number varchar(7),
 time_slot_id varchar(4),
@@ -74,7 +74,7 @@ create table student
 (ID varchar(5),
 name varchar(20) not null,
 dept_name varchar(20),
-tot_cred numeric(3,0) default 0 check (tot_cred >= 0),
+tot_cred numeric(3,0) not null default 0 check (tot_cred >= 0),
 primary key (ID),
 foreign key (dept_name) references department (dept_name) on delete set null
 );
@@ -309,6 +309,42 @@ insert into marks values ('98988', 93);
 
 -- Examples
 
+-- Find all students whose stored total credit is not equal to the sum of credits earned for each successfully completed course.
+
+select ID
+from student
+where tot_cred <>
+(select coalesce(sum(credits), 0)
+from takes natural join course
+where student.ID = takes.ID
+and grade is not null and grade <> 'F');
+
+-- Find all courses that were offered at most once (i.e., either never or exactly once) in 2017.
+
+-- with a correlated subquery (which is re-evaluated for each outer tuple)
+select c.course_id
+from course as c
+where 1 >=
+(select count(s.course_id)
+from section as s
+where s.course_id = c.course_id and year = 2017);
+
+-- with an uncorrelated subquery
+select course_id
+from course
+where course_id not in
+(select course_id
+from section
+where year = 2017
+group by course_id
+having count(course_id) > 1);
+
+-- without a subquery
+select c.course_id
+from course as c left outer join section as s on (c.course_id = s.course_id and year = 2017)
+group by c.course_id
+having count(s.course_id) <= 1;
+
 -- Find all the courses taught in both Fall 2017 and Spring 2018.
 
 -- INTERSECT ALL is not supported in sqlite:
@@ -409,6 +445,7 @@ select coalesce(null, null); -- returns null
 -- SQLite-specific
 -- typeof(X) returns a string from the set {'null', 'integer', 'real', 'text', 'blob'} representing the datatype of expression X
 -- select typeof(ID), typeof(name), typeof(dept_name), typeof(tot_cred) from student;
+-- NB: pg_typeof(X) for Postgres
 
 -- Exercises
 
@@ -505,13 +542,13 @@ left outer join grade_points using (grade)
 where ID = '70558'
 group by ID;
 
--- the following does not work in PostgreSQL since ID is of type string (it does, however, work in SQLite)*:
--- select coalesce(sum(credits * points), ID * 0) as tot_gp
--- from student left outer join takes using (ID)
--- left outer join course using (course_id)
--- left outer join grade_points using (grade)
--- where ID = '70558';
--- * https://www.sqlite.org/datatype3.html#operators
+-- NB: In Postgres, all arguments to coalesce() are required to be of the same type. Furthermore, X * Y requires that both operands be of numeric type. If one operand is of unknown type, it is promoted to the other operand's type. Student.ID is of type 'character varying', therefore an explicit conversion is needed. SQLite's flexible typing handles this implicitly: https://www.sqlite.org/datatype3.html#operators
+select coalesce(sum(credits * points), cast(ID as integer) * 0) as tot_gp
+from student left outer join takes using (ID)
+left outer join course using (course_id)
+left outer join grade_points using (grade)
+where ID = '70558'
+group by ID;
 
 -- b. Find the grade point average (GPA) for the above student, that is, the total grade points divided by the total credits for the associated courses.
 
